@@ -98,14 +98,8 @@ function loadSession() {
   };
 }
 
-function hasActiveClient(room, clientId) {
-  if (!clientId) return false;
-  return Boolean(room?.clients?.[clientId]);
-}
-
 function getLinkedDeviceClientId(room, teamId) {
-  const clientId = room?.teams?.[teamId]?.deviceClientId || "";
-  return hasActiveClient(room, clientId) ? clientId : "";
+  return room?.teams?.[teamId]?.deviceClientId || "";
 }
 
 function getTeamProgress(room, teamId) {
@@ -842,9 +836,6 @@ export default function App() {
     if (!session.roomId) return;
     await mutateRoom((currentRoom) => {
       Object.values(currentRoom.teams || {}).forEach((team) => {
-        if (team.deviceClientId && !hasActiveClient(currentRoom, team.deviceClientId)) {
-          team.deviceClientId = "";
-        }
         if (team.deviceClientId === session.clientId) {
           team.deviceClientId = "";
         }
@@ -869,9 +860,6 @@ export default function App() {
   async function claimTeam(teamId) {
     const result = await mutateRoom((currentRoom) => {
       Object.values(currentRoom.teams || {}).forEach((team) => {
-        if (team.deviceClientId && !hasActiveClient(currentRoom, team.deviceClientId)) {
-          team.deviceClientId = "";
-        }
         if (team.deviceClientId === session.clientId) {
           team.deviceClientId = "";
         }
@@ -888,7 +876,7 @@ export default function App() {
 
       team.deviceClientId = session.clientId;
       currentRoom.activity = {
-          title: "Celular vinculado",
+        title: "Celular vinculado",
           body: `${currentRoom.teams[teamId].name} quedó asociado a este dispositivo.`,
         };
       return { ok: true };
