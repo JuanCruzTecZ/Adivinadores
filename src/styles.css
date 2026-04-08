@@ -367,6 +367,7 @@ h3 {
 
 .word-panel {
   min-height: 620px;
+  scroll-margin-top: 18px;
 }
 
 .timer-display {

@@ -300,6 +300,15 @@ function createTurn(room, turnIndex, stageIndex) {
   };
 }
 
+function advanceCurrentWordForNextTurn(room) {
+  ensureGameCollections(room.game);
+  if (!Array.isArray(room.game?.currentDeck) || room.game.currentDeck.length <= 1) return;
+
+  const [currentWordId, ...rest] = room.game.currentDeck;
+  room.game.currentDeck = [...rest, currentWordId];
+  room.game.currentWordId = room.game.currentDeck[0] || null;
+}
+
 function completeTurn(room, reason) {
   const turn = room.game?.turn;
   if (!turn) return false;
@@ -360,6 +369,7 @@ function completeTurn(room, reason) {
     return true;
   }
 
+  advanceCurrentWordForNextTurn(room);
   room.game.turnIndex = nextTurnIndex;
   room.game.turn = createTurn(room, nextTurnIndex, room.game.stageIndex);
   room.game.stageTransition = null;

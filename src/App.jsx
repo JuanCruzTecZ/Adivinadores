@@ -98,6 +98,16 @@ function loadSession() {
   };
 }
 
+function hasActiveClient(room, clientId) {
+  if (!clientId) return false;
+  return Boolean(room?.clients?.[clientId]);
+}
+
+function getLinkedDeviceClientId(room, teamId) {
+  const clientId = room?.teams?.[teamId]?.deviceClientId || "";
+  return hasActiveClient(room, clientId) ? clientId : "";
+}
+
 function getTeamProgress(room, teamId) {
   const players = getTeamPlayers(room, teamId);
   const submitted = players.filter((player) => Array.isArray(player.words) && player.words.length === 5).length;
@@ -140,8 +150,9 @@ function RolePanel({ room, session, onClaimTeam, onSpectator }) {
 
       <div className="role-grid">
         {getTeams(room).map((team) => {
-          const claimedByMe = team.deviceClientId === session.clientId;
-          const claimedByOther = Boolean(team.deviceClientId && team.deviceClientId !== session.clientId);
+          const linkedDeviceClientId = getLinkedDeviceClientId(room, team.id);
+          const claimedByMe = linkedDeviceClientId === session.clientId;
+          const claimedByOther = Boolean(linkedDeviceClientId && linkedDeviceClientId !== session.clientId);
 
           return (
             <article className="role-card" key={team.id}>
@@ -149,8 +160,13 @@ function RolePanel({ room, session, onClaimTeam, onSpectator }) {
                 {team.name}
               </div>
               <p>{claimedByMe ? "Este celular está vinculado." : claimedByOther ? "Hay otro celular tomado para este equipo." : "Libre para conectar."}</p>
-              <button className={claimedByMe ? "secondary-btn" : "primary-btn"} onClick={() => onClaimTeam(team.id)} type="button">
-                {claimedByMe ? "Seguir con este equipo" : claimedByOther ? "Tomar este equipo" : "Usar este celular"}
+              <button
+                className={claimedByMe ? "secondary-btn" : "primary-btn"}
+                onClick={() => onClaimTeam(team.id)}
+                type="button"
+                disabled={claimedByOther}
+              >
+                {claimedByMe ? "Seguir con este equipo" : claimedByOther ? "Celular ya vinculado" : "Usar este celular"}
               </button>
             </article>
           );
@@ -183,11 +199,11 @@ function LobbyTeamCard({
   onPlayerNameChange,
   onSavePlayerName,
   onRemovePlayer,
-  onClaimTeam,
 }) {
   const players = getTeamPlayers(room, team.id);
-  const claimedByMe = team.deviceClientId === session.clientId;
-  const claimedByOther = Boolean(team.deviceClientId && team.deviceClientId !== session.clientId);
+  const linkedDeviceClientId = getLinkedDeviceClientId(room, team.id);
+  const claimedByMe = linkedDeviceClientId === session.clientId;
+  const claimedByOther = Boolean(linkedDeviceClientId && linkedDeviceClientId !== session.clientId);
 
   return (
     <article className="team-card" style={{ "--team-accent": team.color }}>
@@ -196,9 +212,6 @@ function LobbyTeamCard({
           <div className="team-dot" style={{ background: team.color }} />
           <p className="eyebrow">Equipo</p>
         </div>
-        <button className={claimedByMe ? "secondary-btn small-btn" : "ghost-btn small-btn"} onClick={() => onClaimTeam(team.id)} type="button">
-          {claimedByMe ? "Este celular" : claimedByOther ? "Tomar celular" : "Vincular celular"}
-        </button>
       </div>
 
       {isHost ? (
@@ -335,6 +348,7 @@ function ActiveTurnPanel({
   controlledTeamId,
   currentWord,
   remainingMs,
+  panelRef,
   onStartTurn,
   onCorrect,
   onPass,
@@ -350,7 +364,7 @@ function ActiveTurnPanel({
   const turnCorrectCount = Array.isArray(turn?.correctWordIds) ? turn.correctWordIds.length : 0;
 
   return (
-    <section className="panel word-panel">
+    <section className="panel word-panel" ref={panelRef}>
       <div className="panel-header">
         <div>
           <p className="eyebrow">{stage.title}</p>
@@ -605,6 +619,8 @@ export default function App() {
   const [wordDraft, setWordDraft] = useState(["", "", "", "", ""]);
   const [now, setNow] = useState(Date.now());
   const timeoutGuard = useRef("");
+  const activeTurnPanelRef = useRef(null);
+  const scrollGuard = useRef("");
 
   if (!db) {
     return (
@@ -717,12 +733,13 @@ export default function App() {
 
   useEffect(() => {
     if (!room || !session.teamId) return;
-    if (!room.teams?.[session.teamId]) {
+    if (!room.teams?.[session.teamId] || getLinkedDeviceClientId(room, session.teamId) !== session.clientId) {
       setSession((current) => ({ ...current, teamId: "", mode: "spectator" }));
     }
-  }, [room, session.teamId]);
+  }, [room, session.clientId, session.teamId]);
 
-  const controlledTeamId = session.teamId && room?.teams?.[session.teamId] ? session.teamId : "";
+  const controlledTeamId =
+    session.teamId && room?.teams?.[session.teamId] && getLinkedDeviceClientId(room, session.teamId) === session.clientId ? session.teamId : "";
   const pendingPlayer = room && controlledTeamId ? getPendingPlayerForTeam(room, controlledTeamId) : null;
 
   useEffect(() => {
@@ -740,8 +757,12 @@ export default function App() {
   const remainingMs = turn ? getTurnRemainingMs(turn, now) : stage.durationMs;
   const turnCorrectCount = Array.isArray(turn?.correctWordIds) ? turn.correctWordIds.length : 0;
   const currentDeckCount = Array.isArray(room?.game?.currentDeck) ? room.game.currentDeck.length : 0;
-  const teamLinkedToThisDevice = controlledTeamId && room?.teams?.[controlledTeamId]?.deviceClientId === session.clientId;
+  const teamLinkedToThisDevice = controlledTeamId && getLinkedDeviceClientId(room, controlledTeamId) === session.clientId;
   const isActiveController = Boolean(teamLinkedToThisDevice && activeTeam?.id === controlledTeamId);
+  const turnScrollSignature =
+    room?.status === "playing"
+      ? [stageIndex, turn?.id || "", turn?.teamId || "", turn?.readerPlayerId || "", turn?.status || "", turnCorrectCount].join(":")
+      : "";
 
   useEffect(() => {
     if (!turn || turn.status !== "running") {
@@ -754,6 +775,23 @@ export default function App() {
     timeoutGuard.current = turn.id;
     finishTurnFromTimeout();
   }, [remainingMs, turn]);
+
+  useEffect(() => {
+    if (room?.status !== "playing" || !turnScrollSignature) {
+      scrollGuard.current = "";
+      return;
+    }
+
+    if (scrollGuard.current === turnScrollSignature || !activeTurnPanelRef.current) return;
+
+    scrollGuard.current = turnScrollSignature;
+    window.requestAnimationFrame(() => {
+      activeTurnPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [room?.status, turnScrollSignature]);
 
   async function mutateRoom(mutator) {
     if (!session.roomId) return null;
@@ -808,6 +846,9 @@ export default function App() {
     if (!session.roomId) return;
     await mutateRoom((currentRoom) => {
       Object.values(currentRoom.teams || {}).forEach((team) => {
+        if (team.deviceClientId && !hasActiveClient(currentRoom, team.deviceClientId)) {
+          team.deviceClientId = "";
+        }
         if (team.deviceClientId === session.clientId) {
           team.deviceClientId = "";
         }
@@ -830,20 +871,38 @@ export default function App() {
   }
 
   async function claimTeam(teamId) {
-    await mutateRoom((currentRoom) => {
+    const result = await mutateRoom((currentRoom) => {
       Object.values(currentRoom.teams || {}).forEach((team) => {
+        if (team.deviceClientId && !hasActiveClient(currentRoom, team.deviceClientId)) {
+          team.deviceClientId = "";
+        }
         if (team.deviceClientId === session.clientId) {
           team.deviceClientId = "";
         }
       });
-      if (currentRoom.teams?.[teamId]) {
-        currentRoom.teams[teamId].deviceClientId = session.clientId;
-        currentRoom.activity = {
+      const team = currentRoom.teams?.[teamId];
+      if (!team) {
+        return { ok: false, message: "Ese equipo ya no existe." };
+      }
+
+      const linkedDeviceClientId = getLinkedDeviceClientId(currentRoom, teamId);
+      if (linkedDeviceClientId && linkedDeviceClientId !== session.clientId) {
+        return { ok: false, message: `${team.name} ya tiene un celular vinculado.` };
+      }
+
+      team.deviceClientId = session.clientId;
+      currentRoom.activity = {
           title: "Celular vinculado",
           body: `${currentRoom.teams[teamId].name} quedó asociado a este dispositivo.`,
         };
-      }
+      return { ok: true };
     });
+
+    if (!result?.ok) {
+      showBanner(result?.message || "No se pudo vincular este celular.", "danger");
+      return;
+    }
+
     setSession((current) => ({ ...current, teamId, mode: "team" }));
   }
 
@@ -1157,7 +1216,6 @@ export default function App() {
                   onPlayerNameChange={(playerId, value) => setPlayerNameDrafts((current) => ({ ...current, [playerId]: value }))}
                   onSavePlayerName={savePlayerLabel}
                   onRemovePlayer={removeTeamPlayer}
-                  onClaimTeam={claimTeam}
                 />
               ))}
             </div>
@@ -1283,6 +1341,7 @@ export default function App() {
             controlledTeamId={controlledTeamId}
             currentWord={currentWord}
             remainingMs={remainingMs}
+            panelRef={activeTurnPanelRef}
             onStartTurn={startCurrentTurn}
             onCorrect={markWordAsCorrect}
             onPass={passWord}
