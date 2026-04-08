@@ -41,15 +41,15 @@ function explainFirebaseError(error) {
   const message = error instanceof Error ? error.message : String(error || "");
 
   if (message.includes("permission_denied")) {
-    return "Firebase rechazó la escritura. Revisá las reglas de Realtime Database.";
+    return "Firebase rechazó la escritura.";
   }
 
   if (message.includes("404") || message.includes("not found")) {
-    return "La Realtime Database no parece estar disponible para este proyecto.";
+    return "La Realtime Database no parece estar disponible.";
   }
 
   if (message.includes("offline") || message.includes("network")) {
-    return "No se pudo conectar con Firebase. Revisá la conexión y la databaseURL.";
+    return "No se pudo conectar con Firebase.";
   }
 
   return `Firebase devolvió este error: ${message || "desconocido"}`;
@@ -144,7 +144,7 @@ function RolePanel({ room, session, onClaimTeam, onSpectator }) {
       <div className="panel-header">
         <div>
           <p className="eyebrow">Celulares</p>
-          <h2>Vincular este dispositivo</h2>
+          <h2>Vinculá este dispositivo</h2>
         </div>
       </div>
 
@@ -159,14 +159,14 @@ function RolePanel({ room, session, onClaimTeam, onSpectator }) {
               <div className="role-chip" style={{ background: `${team.color}22`, color: team.color }}>
                 {team.name}
               </div>
-              <p>{claimedByMe ? "Este celular está vinculado." : claimedByOther ? "Hay otro celular tomado para este equipo." : "Libre para conectar."}</p>
+              <p>{claimedByMe ? "Este celular está vinculado a este equipo." : claimedByOther ? "Este equipo ya tiene un celular asignado." : "Libre para conectar."}</p>
               <button
                 className={claimedByMe ? "secondary-btn" : "primary-btn"}
                 onClick={() => onClaimTeam(team.id)}
                 type="button"
                 disabled={claimedByOther}
               >
-                {claimedByMe ? "Seguir con este equipo" : claimedByOther ? "Celular ya vinculado" : "Usar este celular"}
+                {claimedByMe ? "Celular conectado" : claimedByOther ? "Celular ya vinculado" : "asignar este celular al equipo"}
               </button>
             </article>
           );
@@ -174,9 +174,9 @@ function RolePanel({ room, session, onClaimTeam, onSpectator }) {
 
         <article className="role-card role-card-muted">
           <div className="role-chip neutral-chip">Espectador</div>
-          <p>Sirve para mirar la partida, ver el cronómetro y pedir FALTA sin mostrar palabras.</p>
+          <p>Mira la partida en vivo, el cronómetro, los puntos y pedir FALTA! si corresponde.</p>
           <button className={session.mode === "spectator" ? "secondary-btn" : "ghost-btn"} onClick={onSpectator} type="button">
-            Mirar sin equipo
+            Usar este celular como Espectador
           </button>
         </article>
       </div>
@@ -274,13 +274,13 @@ function LobbyTeamCard({
             placeholder="Agregar jugador"
           />
           <button className="primary-btn" onClick={() => onAddPlayer(team.id)} type="button">
-            Sumar
+            Agregar
           </button>
         </div>
       ) : null}
 
       <p className="team-meta">
-        {claimedByMe ? "Este dispositivo está listo para jugar por este equipo." : claimedByOther ? "Otro dispositivo figura como celular del equipo." : "Este equipo todavía no tiene celular vinculado."}
+        {claimedByMe ? "Este dispositivo está listo para jugar por este equipo." : claimedByOther ? "Otro dispositivo se conecto como celular del equipo." : "Este equipo todavía no tiene celular vinculado."}
       </p>
     </article>
   );
@@ -385,8 +385,8 @@ function ActiveTurnPanel({
       {isActiveController ? (
         turn?.status === "waiting" ? (
           <div className="waiting-card">
-            <h3>Todo listo para arrancar</h3>
-            <p>Este equipo es el siguiente. Cuando quieran, inician el cronómetro desde este celular.</p>
+            <h3>Listo para arrancar el turno</h3>
+            <p>Este equipo es el siguiente. Cuando quieran, inician el turno desde este celular.</p>
             <button className="primary-btn block-btn" onClick={onStartTurn} type="button">
               Empezar turno
             </button>
@@ -401,10 +401,10 @@ function ActiveTurnPanel({
 
             {foulPending ? (
               <div className="foul-box">
-                <p>Otro dispositivo pidió FALTA. ¿Confirmás que se rompió la regla?</p>
+                <p>Un jugador pidió FALTA!. ¿Confirmás que se rompió la regla?</p>
                 <div className="action-grid">
                   <button className="danger-btn" onClick={onConfirmFoul} type="button">
-                    Confirmar falta
+                    Confirmar FALTA!
                   </button>
                   <button className="secondary-btn" onClick={onRejectFoul} type="button">
                     Seguir jugando
@@ -414,10 +414,10 @@ function ActiveTurnPanel({
             ) : (
               <div className="action-grid">
                 <button className="success-btn" onClick={onCorrect} type="button" disabled={turn?.status !== "running"}>
-                  ✔ Adivinaron
+                  ADIVINADO
                 </button>
                 <button className="secondary-btn" onClick={onPass} type="button" disabled={turn?.status !== "running"}>
-                  → Pasar
+                  → PASAR
                 </button>
               </div>
             )}
@@ -425,8 +425,7 @@ function ActiveTurnPanel({
         )
       ) : (
         <div className="spectator-card">
-          <h3>{turn?.status === "waiting" ? "Esperando que el equipo active el turno" : "Palabra oculta para el equipo lector"}</h3>
-          <p>Acá no se muestran palabras para no romper la privacidad del turno.</p>
+          <h3>{turn?.status === "waiting" ? "Esperando que el equipo active el turno" : "Atento a las fallas!"}</h3>
           <div className="hidden-word">••••••••</div>
           <button className="danger-btn block-btn" onClick={onRaiseFoul} type="button" disabled={turn?.status !== "running" || controlledTeamId === team?.id}>
             ¡FALTA!
@@ -446,9 +445,9 @@ function TurnSpotlight({ room, activeTeam, activeReader, stage, remainingMs, cur
         <p>{stage.cue}</p>
       </article>
       <article className="turn-spotlight-card turn-spotlight-team">
-        <span className="spotlight-label">Turno de</span>
+        <span className="spotlight-label">Turno de:</span>
         <strong>{activeTeam?.name || "Sin equipo"}</strong>
-        <p>{activeReader?.name ? `Lee ${activeReader.name}` : "Esperando lector"}</p>
+        <p>{activeReader?.name ? `JUEGA: ${activeReader.name}` : "Esperando Jugador"}</p>
       </article>
       <article className="turn-spotlight-card turn-spotlight-timer">
         <span className="spotlight-label">Tiempo</span>
@@ -480,11 +479,11 @@ function StageTransitionOverlay({ transition, teamName, readerName, onClose }) {
           <div className="stage-summary-card">
             <span className="spotlight-label">Arranca</span>
             <strong>{teamName || "Siguiente equipo"}</strong>
-            <p>{readerName ? `Lee ${readerName}` : "Lector por definir"}</p>
+            <p>{readerName ? `Juega: ${readerName}` : "Jugador por definir"}</p>
           </div>
         </div>
         <button className="primary-btn block-btn" onClick={onClose} type="button">
-          Entendido, seguir
+          Entendido (Esperar que todos lean)
         </button>
       </div>
     </div>
@@ -513,14 +512,11 @@ function ResultsScreen({ room, onLeave, onReplay, onDownloadWords }) {
             <span className="room-code-label">Sala</span>
             <strong>{room.code}</strong>
           </div>
-          <p className="hero-copy">Las tres etapas ya se jugaron completas. Acá queda el resumen por equipo.</p>
+          <p className="hero-copy">Las tres rondas ya se jugaron completas.</p>
         </div>
         <div className="hero-actions">
           <button className="secondary-btn top-action" onClick={onReplay} type="button">
             Volver a jugar
-          </button>
-          <button className="ghost-btn top-action" onClick={onDownloadWords} type="button">
-            Descargar palabras
           </button>
           <button className="ghost-btn top-action" onClick={onLeave} type="button">
             Salir de la sala
@@ -539,7 +535,7 @@ function ResultsScreen({ room, onLeave, onReplay, onDownloadWords }) {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Podio</p>
-              <h2>Clasificación</h2>
+              <h2>2° y 3°</h2>
             </div>
           </div>
           <Scoreboard room={room} />
@@ -549,14 +545,14 @@ function ResultsScreen({ room, onLeave, onReplay, onDownloadWords }) {
           <div className="panel-header">
             <div>
               <p className="eyebrow">Detalle</p>
-              <h2>Puntos por etapa</h2>
+              <h2>Puntos por Rondas</h2>
             </div>
           </div>
           <div className="results-table">
             <div className="results-head">Equipo</div>
-            <div className="results-head">Etapa 1</div>
-            <div className="results-head">Etapa 2</div>
-            <div className="results-head">Etapa 3</div>
+            <div className="results-head">Ronda 1</div>
+            <div className="results-head">Ronda 2</div>
+            <div className="results-head">Ronda 3</div>
             <div className="results-head">Total</div>
             {leaderboard.map((team) => (
               <ResultsTableRow
@@ -938,7 +934,7 @@ export default function App() {
     const inputValue = document.querySelector(`#player-draft-${teamId}`)?.value || "";
     const draft = sanitizeText(playerDrafts[teamId] || inputValue, 24);
     if (!draft) {
-      showBanner("Escribí un nombre antes de sumar al jugador.", "danger");
+      showBanner("Escribí un nombre antes de agregar al jugador.", "danger");
       return;
     }
 
@@ -947,7 +943,7 @@ export default function App() {
       return;
     }
     if (!result.ok) {
-      showBanner("Escribí un nombre antes de sumar al jugador.", "danger");
+      showBanner("Escribí un nombre antes de agregar al jugador.", "danger");
       return;
     }
     setPlayerDrafts((current) => ({ ...current, [teamId]: "" }));
@@ -966,7 +962,7 @@ export default function App() {
 
   async function openCollection() {
     if (!isSetupReady(room)) {
-      showBanner("Cada equipo necesita nombre y al menos un jugador para abrir la carga privada.", "danger");
+      showBanner("Cada equipo necesita nombre y al menos dos jugadores para abrir la carga privada.", "danger");
       return;
     }
 
@@ -975,7 +971,7 @@ export default function App() {
       currentRoom.status = "collection";
       currentRoom.activity = {
         title: "Carga de palabras",
-        body: "Cada equipo ya puede pasar el celular internamente y guardar sus palabras sin mostrar las anteriores.",
+        body: "Cada jugador carga 5 palabras CALESQUIERA y se pasan el celular entre los del equipo.",
       };
       return { ok: true };
     });
@@ -1085,7 +1081,7 @@ export default function App() {
             <p className="section-kicker">Juanito.World</p>
             <h1>3 Rondas.</h1>
             <p className="hero-copy">
-              Juego online para 2 a 4 equipos, con carga privada de palabras, cronómetro compartido, faltas en vivo y tres etapas consecutivas.
+              Juego online para 2 a 4 equipos de Adivinanzas con mimicas y palabras en 3 rondas
             </p>
           </div>
         </section>
@@ -1100,7 +1096,7 @@ export default function App() {
                 <h2>Crear partida</h2>
               </div>
             </div>
-            <p className="muted-copy">Armá una sala, configurá los equipos y después cada celular se vincula con su equipo.</p>
+            <p className="muted-copy">Armá una sala, configurá los equipos y comparti el codigo de Sala.</p>
             <button className="primary-btn block-btn" onClick={createNewRoom} type="button">
               Crear sala ahora
             </button>
@@ -1141,7 +1137,7 @@ export default function App() {
           <div className="hero-content">
             <p className="section-kicker">Conectando</p>
             <h1>Sala en sincronización.</h1>
-            <p className="hero-copy">Estamos cargando el estado compartido de la partida.</p>
+            <p className="hero-copy">Estamos cargando el estado de la partida.</p>
           </div>
         </section>
         <Footer />
@@ -1176,7 +1172,7 @@ export default function App() {
       <Banner banner={banner} onClose={() => setBanner(null)} />
 
       {room.status === "lobby" ? (
-        <main className="screen-grid">
+        <main className="screen-grid"> 
           <section className="panel">
             <div className="panel-header panel-header-wrap">
               <div>
@@ -1227,7 +1223,7 @@ export default function App() {
             <div className="panel-header">
               <div>
                 <p className="eyebrow">Checklist</p>
-                <h2>Antes de empezar</h2>
+                <h2>Comprobá antes de empezar</h2>
               </div>
             </div>
             <div className="mini-list">
@@ -1238,7 +1234,7 @@ export default function App() {
                 </div>
               ))}
             </div>
-            <p className="muted-copy">El host abre la etapa privada cuando todos los equipos estén configurados.</p>
+            <p className="muted-copy">El host empieza la carga de palabras cuando todos los equipos estén configurados.</p>
             <button className="primary-btn block-btn" onClick={openCollection} type="button" disabled={!isHost || !isSetupReady(room)}>
               Abrir carga de palabras
             </button>
@@ -1251,8 +1247,8 @@ export default function App() {
           <section className="panel">
             <div className="panel-header">
               <div>
-                <p className="eyebrow">Progreso global</p>
-                <h2>Quién ya cargó</h2>
+                <p className="eyebrow">Estado Global</p>
+                <h2>Carga de Palabras</h2>
               </div>
             </div>
 
@@ -1268,7 +1264,7 @@ export default function App() {
           <section className="panel">
             <div className="panel-header">
               <div>
-                <p className="eyebrow">Celular actual</p>
+                <p className="eyebrow">Celular de equipo</p>
                 <h2>Carga privada</h2>
               </div>
             </div>
@@ -1277,8 +1273,9 @@ export default function App() {
               pendingPlayer ? (
                 <div className="word-entry-shell">
                   <div className="privacy-box">
-                    <strong>Turno de {pendingPlayer.name}</strong>
-                    <p>Solo esta persona debería ver esta pantalla. Cuando guarde, las palabras anteriores desaparecen.</p>
+                    <strong>Turno de: {pendingPlayer.name}</strong>
+                    <p>solo vos tenes que ver las palabras que cargas, deben ser aleatoreaslo que se te ocurra.</p>
+                    <p>Ej: Automovil, Cama, Luna, Sexo.</p>
                   </div>
 
                   <div className="word-form">
@@ -1303,20 +1300,20 @@ export default function App() {
               ) : (
                 <div className="waiting-card">
                   <h3>Equipo completo</h3>
-                  <p>Este equipo ya terminó su carga privada. Ahora solo queda esperar al resto.</p>
+                  <p>Este equipo ya terminó su carga privada. Ahora solo queda esperar al resto de quipos.</p>
                 </div>
               )
             ) : (
               <div className="waiting-card">
                 <h3>Elegí un equipo para este celular</h3>
-                <p>Vinculá este dispositivo con un equipo si lo van a usar para cargar palabras o jugar turnos.</p>
+                <p>Vinculá este dispositivo con un equipo si es posible para cargar las palabras.</p>
               </div>
             )}
 
             <div className="collection-footer">
               <p className="muted-copy">El host puede avanzar cuando todos los jugadores de todos los equipos ya guardaron sus palabras.</p>
               <button className="primary-btn block-btn" onClick={startGameFlow} type="button" disabled={!isHost || !isCollectionComplete(room)}>
-                Empezar etapa 1
+                Empezar Ronda 1
               </button>
             </div>
           </section>
