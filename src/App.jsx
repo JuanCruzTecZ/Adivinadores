@@ -213,7 +213,7 @@ export default function App() {
   if (!roomId || !room) {
     return (
       <div className="container">
-        <h1>Adivinadores</h1>
+        <h1>Cinefilos</h1>
         <div className="card">
           <input 
             type="text" 

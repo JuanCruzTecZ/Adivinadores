@@ -1,14 +1,11 @@
+import peliculasData from "../peliculas.json";
+
 export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 20;
 export const DEFAULT_ROUNDS = 3;
 export const TURN_DURATION_MS = 60_000;
 
-// Base de datos temporal. Se sustituirá por la conexión a la base real.
-const WORDS_DATABASE = [
-  "BOTELLA", "ASTRONAUTA", "CANGURO", "HELICOPTERO", "GUITARRA",
-  "ELEFANTE", "MICROFONO", "ESPEJO", "PIZZA", "MOTOCICLETA",
-  "PARAGUAS", "PINGUINO", "TELESCOPIO", "HAMBURGUESA", "ZAPATILLA"
-];
+const WORDS_DATABASE = Array.isArray(peliculasData?.peliculas) ? peliculasData.peliculas : [];
 
 export function uid(prefix) {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
