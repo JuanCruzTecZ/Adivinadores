@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ref, onValue, set, update, remove } from "firebase/database";
+import { ref, onValue, get, set, update, remove } from "firebase/database";
 import { db } from "./lib/firebase";
 import {
   createRoom, addPlayer, randomRoomCode, uid, getPlayers, isSetupReady,
@@ -63,26 +63,47 @@ export default function App() {
   }
 
   const [clientId] = useState(() => {
-    const fromCookie = typeof document !== "undefined" ? getCookie("mimo_clientId") : null;
-    if (fromCookie) return fromCookie;
-    const saved = localStorage.getItem("mimo_clientId");
-    if (saved) {
-      // backfill cookie
-      try { setCookie("mimo_clientId", saved); } catch (e) {}
-      return saved;
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem("mimo_clientId") : null;
+      if (saved) {
+        try { setCookie("mimo_clientId", saved); } catch (e) {}
+        return saved;
+      }
+    } catch (e) {
+      // ignore storage errors
     }
+
+    const fromCookie = typeof document !== "undefined" ? getCookie("mimo_clientId") : null;
+    if (fromCookie) {
+      try { localStorage.setItem("mimo_clientId", fromCookie); } catch (e) {}
+      return fromCookie;
+    }
+
     const newId = uid("client");
     try { setCookie("mimo_clientId", newId); } catch (e) {}
-    localStorage.setItem("mimo_clientId", newId);
+    try { localStorage.setItem("mimo_clientId", newId); } catch (e) {}
     return newId;
   });
 
-  const [roomId, setRoomId] = useState(null);
+  const [roomId, setRoomId] = useState(() => {
+    try {
+      return typeof window !== "undefined" ? localStorage.getItem("mimo_roomId") : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [room, setRoom] = useState(null);
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState("");
-  const [currentPlayerId, setCurrentPlayerId] = useState(null);
+  const [currentPlayerId, setCurrentPlayerId] = useState(() => {
+    try {
+      return typeof window !== "undefined" ? localStorage.getItem("mimo_playerId") : null;
+    } catch (e) {
+      return null;
+    }
+  });
   const [roundsInput, setRoundsInput] = useState("3");
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   useEffect(() => {
     if (room?.maxRounds != null) {
@@ -91,11 +112,28 @@ export default function App() {
   }, [room?.maxRounds]);
 
   useEffect(() => {
+    if (roomId) {
+      try { localStorage.setItem("mimo_roomId", roomId); } catch (e) {}
+    } else {
+      try { localStorage.removeItem("mimo_roomId"); } catch (e) {}
+    }
+  }, [roomId]);
+
+  useEffect(() => {
+    if (currentPlayerId) {
+      try { localStorage.setItem("mimo_playerId", currentPlayerId); } catch (e) {}
+    } else {
+      try { localStorage.removeItem("mimo_playerId"); } catch (e) {}
+    }
+  }, [currentPlayerId]);
+
+  useEffect(() => {
     if (!roomId) return;
     const roomRef = ref(db, `rooms/${roomId}`);
     const unsubscribe = onValue(roomRef, (snapshot) => {
       const data = snapshot.val();
       if (data) setRoom(data);
+      else setRoom(null);
     });
     return () => unsubscribe();
   }, [roomId]);
@@ -104,7 +142,23 @@ export default function App() {
   useEffect(() => {
     const runInit = async () => {
       await cleanupOldRooms();
-      await findRoomByClientId();
+      if (roomId && currentPlayerId) {
+        try {
+          const roomSnap = await get(ref(db, `rooms/${roomId}`));
+          const roomData = roomSnap.val();
+          if (!roomData || !(roomData.clients?.[clientId] === currentPlayerId || roomData.players?.[currentPlayerId])) {
+            setRoomId(null);
+            setCurrentPlayerId(null);
+            await findRoomByClientId();
+          }
+        } catch (error) {
+          console.error("validate session error", error);
+          await findRoomByClientId();
+        }
+      } else {
+        await findRoomByClientId();
+      }
+      setSessionLoading(false);
     };
     runInit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -176,8 +230,9 @@ export default function App() {
 
   const handleJoinRoom = async () => {
     if (!playerName.trim() || !joinCode.trim()) return;
-    const roomsRef = ref(db, "rooms");
-    onValue(roomsRef, async (snapshot) => {
+    try {
+      const roomsRef = ref(db, "rooms");
+      const snapshot = await get(roomsRef);
       const rooms = snapshot.val() || {};
       const targetRoomId = Object.keys(rooms).find((key) => rooms[key].code === joinCode);
       if (targetRoomId) {
@@ -190,12 +245,16 @@ export default function App() {
       } else {
         alert("Código inválido");
       }
-    }, { onlyOnce: true });
+    } catch (error) {
+      console.error("handleJoinRoom error", error);
+      alert("Error al unirse a la sala. Intenta de nuevo.");
+    }
   };
 
   const handleLeaveTable = () => {
-    clearAllCookies();
-    localStorage.removeItem("mimo_clientId");
+    deleteCookie("mimo_clientId");
+    try { localStorage.removeItem("mimo_roomId"); } catch (e) {}
+    try { localStorage.removeItem("mimo_playerId"); } catch (e) {}
     setRoomId(null);
     setRoom(null);
     setCurrentPlayerId(null);
@@ -209,6 +268,17 @@ export default function App() {
     if (res.ok) await set(ref(db, `rooms/${roomId}`), updatedRoom);
     else alert(res.message);
   };
+
+  if (sessionLoading) {
+    return (
+      <div className="container">
+        <h1>Cinefilos</h1>
+        <div className="card">
+          <p>Cargando la sesión...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!roomId || !room) {
     return (
