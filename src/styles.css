@@ -149,6 +149,10 @@ li {
   white-space: pre-wrap;
 }
 
+.obfuscated-word {
+  word-spacing: 1.5rem;
+}
+
 .word-options {
   display: flex;
   flex-direction: column;
