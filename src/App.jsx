@@ -82,6 +82,13 @@ export default function App() {
   const [playerName, setPlayerName] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [currentPlayerId, setCurrentPlayerId] = useState(null);
+  const [roundsInput, setRoundsInput] = useState("3");
+
+  useEffect(() => {
+    if (room?.maxRounds != null) {
+      setRoundsInput(String(room.maxRounds));
+    }
+  }, [room?.maxRounds]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -234,7 +241,12 @@ export default function App() {
     const players = getPlayers(room);
     
     const handleUpdateRounds = async (e) => {
-      const val = parseInt(e.target.value, 10) || 1;
+      const raw = e.target.value;
+      setRoundsInput(raw);
+      const numeric = raw.replace(/[^0-9]/g, "");
+      if (numeric === "") return;
+      const parsed = parseInt(numeric, 10);
+      const val = Number.isNaN(parsed) ? 1 : Math.max(1, Math.min(10, parsed));
       await update(ref(db, `rooms/${roomId}`), { maxRounds: val });
     };
 
@@ -246,10 +258,12 @@ export default function App() {
             <label style={{ marginRight: "10px" }}>Rondas a jugar: </label>
             {room.hostClientId === clientId ? (
               <input 
-                type="number" 
+                type="text" 
+                inputMode="numeric" 
+                pattern="[0-9]*" 
                 min="1" 
                 max="10" 
-                value={room.maxRounds || 3} 
+                value={roundsInput} 
                 onChange={handleUpdateRounds} 
                 style={{ width: "60px", display: "inline-block", margin: 0 }}
               />
