@@ -14,28 +14,31 @@ function getObfuscatedWord(word, startedAt, now = Date.now()) {
   const elapsedMs = Math.min(Math.max(0, now - startedAt), totalDurationMs);
   const remainingMs = totalDurationMs - elapsedMs;
 
-  const chars = word.split("");
-  const maxRevealBeforeFinal = Math.max(0, chars.length - 3);
+  const chars = Array.from(word);
+  const visibleIndexes = chars.map((char, index) => (char === " " ? null : index)).filter((index) => index !== null);
+  const maxRevealBeforeFinal = Math.max(0, visibleIndexes.length - 3);
   const baseReveal = Math.min(Math.floor(elapsedMs / revealIntervalMs), maxRevealBeforeFinal);
   let charsToReveal = baseReveal;
 
   if (remainingMs <= 13000) {
     const hiddenAtFinal = 1;
-    const missingBeforeFinal = Math.max(0, chars.length - hiddenAtFinal - baseReveal);
+    const missingBeforeFinal = Math.max(0, visibleIndexes.length - hiddenAtFinal - baseReveal);
     const extraReveal = Math.floor(((13000 - remainingMs) / 13000) * missingBeforeFinal);
-    charsToReveal = Math.min(chars.length - hiddenAtFinal, baseReveal + extraReveal);
+    charsToReveal = Math.min(visibleIndexes.length - hiddenAtFinal, baseReveal + extraReveal);
   }
 
   const revealIndices = new Set();
   let seed = word.charCodeAt(0) || 1;
   while (revealIndices.size < charsToReveal) {
     seed = (seed * 9301 + 49297) % 233280;
-    const index = Math.floor((seed / 233280) * chars.length);
-    revealIndices.add(index);
-    if (revealIndices.size >= chars.length - 1) break;
+    const index = visibleIndexes[Math.floor((seed / 233280) * visibleIndexes.length)];
+    if (index != null) revealIndices.add(index);
+    if (revealIndices.size >= visibleIndexes.length - 1) break;
   }
 
-  return chars.map((char, index) => revealIndices.has(index) ? char : "_").join(" ");
+  return chars
+    .map((char, index) => (char === " " ? " " : revealIndices.has(index) ? char : "_"))
+    .join("");
 }
 
 export default function App() {
